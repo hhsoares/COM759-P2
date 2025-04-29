@@ -5,49 +5,70 @@ from app import app
 from app import db
 from bson.objectid import ObjectId
 
+# List all notas fiscais
 @app.route('/')
 @app.route('/index')
 def index():
-	return flask.jsonify(json.loads(json_util.dumps(db.candidato.find({}).sort("_id", 1))))
+    notas = db.notafiscal.find({}).sort("_id", 1)
+    return flask.jsonify(json.loads(json_util.dumps(notas)))
 
+# Render create form
 @app.route("/create")
 def create():
-	return flask.render_template('create.html')
+    return flask.render_template('create.html')
 
+# Create new nota fiscal
 @app.route('/createAction', methods=['POST'])
 def createAction():
-	json_data = request.form.to_dict()
-	if json_data is not None:
-		if db.candidato.insert_one(json_data).inserted_id is not None:
-			return jsonify(mensagem='Inserido')
-		else:
-			return jsonify(mensagem='Não inserido')
-	else:
-		return jsonify(mensagem='Nada a inserir')
+    json_data = request.form.to_dict()
+    if json_data:
+        if db.notafiscal.insert_one(json_data).inserted_id:
+            return jsonify(mensagem='Nota fiscal inserida com sucesso!')
+        else:
+            return jsonify(mensagem='Erro ao inserir nota fiscal.')
+    else:
+        return jsonify(mensagem='Nenhum dado recebido.')
 
-@app.route("/update/<string:login>")
-def update(login):
-	candidato = db.candidato.find_one({"login": login})
-	if candidato is not None:
-		return flask.render_template('update.html', candidato=candidato)
-	else:
-		return jsonify(mensagem='Login não existe')
+# Render update form
+@app.route("/update/<string:numero>")
+def update(numero):
+    nota = db.notafiscal.find_one({"numero": numero})
+    if nota:
+        return flask.render_template('update.html', nota=nota)
+    else:
+        return jsonify(mensagem='Nota fiscal não encontrada.')
 
+# Update existing nota fiscal
 @app.route('/updateAction', methods=['POST'])
 def updateAction():
-	json_data = request.form.to_dict()
-	if json_data is not None:
-		if db.candidato.update_one({'_id': ObjectId(json_data["_id"])}, {"$set": {'nome': json_data["nome"], 'login': json_data["login"],'senha': json_data["senha"],'descricao': json_data["descricao"]}}).modified_count > 0:
-			return jsonify(mensagem='Alterado')
-		else:
-			return jsonify(mensagem='Não alterado')
-	else:
-		return jsonify(mensagem='Nada a alterar')
-
-@app.route("/delete/<string:login>")
-def delete(login):
-    result = db.candidato.delete_one({"login": login})
-    if(result.deleted_count > 0):
-        return jsonify(mensagem='Removido')
+    json_data = request.form.to_dict()
+    if json_data and "_id" in json_data:
+        updated_data = {
+            'numero': json_data.get('numero'),
+            'comprador': json_data.get('comprador'),
+            'cnpj': json_data.get('cnpj'),
+            'endereco': json_data.get('endereco'),
+            'telefone': json_data.get('telefone'),
+            'data': json_data.get('data'),
+            'valor': json_data.get('valor'),
+            'itens': json_data.get('itens')
+        }
+        result = db.notafiscal.update_one(
+            {'_id': ObjectId(json_data['_id'])},
+            {"$set": updated_data}
+        )
+        if result.modified_count > 0:
+            return jsonify(mensagem='Nota fiscal alterada com sucesso!')
+        else:
+            return jsonify(mensagem='Nenhuma alteração feita.')
     else:
-        return jsonify(mensagem='Não removido')
+        return jsonify(mensagem='Dados inválidos para atualização.')
+
+# Delete nota fiscal
+@app.route("/delete/<string:numero>")
+def delete(numero):
+    result = db.notafiscal.delete_one({"numero": numero})
+    if result.deleted_count > 0:
+        return jsonify(mensagem='Nota fiscal removida com sucesso!')
+    else:
+        return jsonify(mensagem='Nota fiscal não encontrada para remoção.')
